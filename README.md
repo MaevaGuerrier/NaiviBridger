@@ -24,6 +24,7 @@ NaviBridger is a novel framework for visual navigation built upon **Denoising Di
 
 ## ✅ TODO List
 
+- \[x\] Model weights released
 - [ ] Deployment code updates
 - [ ] A refactored version of the code (in the coming weeks)
 
@@ -42,7 +43,7 @@ navibridge/
 │   ├── src/navibridger_inference.py
 │   ├── config/params.yaml        # Inference config
 │   ├── deployment_environment.yaml
-│   └── model_weights/            # Place for .pth model weights
+│   └── model_weights/            # Place for .pth model weights and corresponding .yaml config
 └── README.md                      # This file
 ```
 
@@ -117,6 +118,8 @@ For learning-based method, training CVAE first:
 ```bash
 python train.py -c config/cvae.yaml
 ```
+
+You can download the *.pth file from [this link](https://drive.google.com/drive/folders/14YhZnqFH9M6Y2fJc6LJwnO1eBIEeDAMC?usp=sharing) to try out the inference
 
 ---
 
