@@ -6,7 +6,7 @@ import numpy as np
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
-from piq import LPIPS
+# from piq import LPIPS
 
 from .nn import mean_flat, append_dims, append_zero
 

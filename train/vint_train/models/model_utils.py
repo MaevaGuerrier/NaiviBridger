@@ -6,7 +6,7 @@ from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
 from vint_train.models.navibridge.ddbm.karras_diffusion import KarrasDenoiser
 from vint_train.models.navibridge.ddbm.resample import create_named_schedule_sampler
 from vint_train.models.navibridge.navibridge import PriorModel, Prior_HandCraft
-from vint_train.models.navibridge.vae.vae import VAEModel
+# from vint_train.models.navibridge.vae.vae import VAEModel
 
 import os
 def create_model(config, device):
@@ -57,8 +57,8 @@ def create_model(config, device):
             states_pred_net=states_pred_net,
         )
         set_model_prior(model, config, device)
-    elif config["model_type"] == "cvae":
-        model = VAEModel(config)
+    # elif config["model_type"] == "cvae":
+    #     model = VAEModel(config)
     else:
         raise ValueError(f"Model {config['model_type']} not supported")
 
@@ -122,15 +122,15 @@ def load_prior_model(prior_args, device):
         pass
     elif prior_args['prior_policy'] == 'gaussian':
         prior_model = None
-    elif prior_args['prior_policy'] == 'cvae':
-        from vint_train.models.navibridge.vae.vae import VAEModel
-        model_spec_names = prior_args['net_type']
-        ckpt_path = prior_args["ckpt_path"]
-        prior_args['pretrain'] = True
-        prior_args['ckpt_path'] = ckpt_path
+    # elif prior_args['prior_policy'] == 'cvae':
+    #     from vint_train.models.navibridge.vae.vae import VAEModel
+    #     model_spec_names = prior_args['net_type']
+    #     ckpt_path = prior_args["ckpt_path"]
+    #     prior_args['pretrain'] = True
+    #     prior_args['ckpt_path'] = ckpt_path
 
-        prior_model = VAEModel(prior_args)
-        prior_model.load_model(model_args=prior_args, device=device)
+    #     prior_model = VAEModel(prior_args)
+    #     prior_model.load_model(model_args=prior_args, device=device)
 
     else:
         raise NotImplementedError(f"Can not be found prior policy: {prior_args['prior_policy']}")

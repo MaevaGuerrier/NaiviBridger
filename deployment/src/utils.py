@@ -3,6 +3,9 @@ import sys
 import io
 import matplotlib.pyplot as plt
 
+# ROS
+from sensor_msgs.msg import Image
+
 # pytorch
 import torch
 import torch.nn as nn
@@ -11,7 +14,7 @@ import torchvision.transforms.functional as TF
 
 import numpy as np
 from PIL import Image as PILImage
-import cv2
+# import cv2
 from typing import List, Tuple, Dict, Optional
 import importlib.resources as pkg_resources
 from tqdm import tqdm
@@ -25,7 +28,7 @@ from vint_train.data.data_utils import IMAGE_ASPECT_RATIO
 from vint_train.models.navibridge.ddbm.karras_diffusion import KarrasDenoiser
 from vint_train.models.navibridge.ddbm.resample import create_named_schedule_sampler
 from vint_train.models.navibridge.navibridge import PriorModel, Prior_HandCraft
-from vint_train.models.navibridge.vae.vae import VAEModel
+# from vint_train.models.navibridge.vae.vae import VAEModel
 from vint_train.models.model_utils import set_model_prior
 
 def load_model(
@@ -70,8 +73,8 @@ def load_model(
             states_pred_net=states_pred_net,
         )
         set_model_prior(model, config, device)
-    elif config["model_type"] == "cvae":
-        model = VAEModel(config)
+    # elif config["model_type"] == "cvae":
+    #     model = VAEModel(config)
     else:
         raise ValueError(f"Invalid model type: {model_type}")
     
@@ -150,7 +153,7 @@ def find_images(directory):
     image_files = [file for file in files if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp'))]
     return [os.path.join(directory, file) for file in image_files]
 
-def project_and_draw(image, trajectories, extrinsic_matrix, intrinsic_matrix):
+# def project_and_draw(image, trajectories, extrinsic_matrix, intrinsic_matrix):
     """
     Project trajectories from world coordinates to pixel coordinates and draw them on the image using matplotlib.
     Note that the projection is not accurate, only for visualization.
@@ -237,3 +240,20 @@ def camera_to_pixel(camera_coords, intrinsic_matrix):
     y = (fy * Y / Z) + cy
 
     return np.array([x, y])  # Convert to 2D pixel coordinates
+
+
+
+def msg_to_pil(msg: Image) -> PILImage.Image:
+    img = np.frombuffer(msg.data, dtype=np.uint8).reshape(
+        msg.height, msg.width, -1)
+    pil_image = PILImage.fromarray(img)
+    return pil_image
+
+
+def pil_to_msg(pil_img: PILImage.Image, encoding="mono8") -> Image:
+    img = np.asarray(pil_img)  
+    ros_image = Image(encoding=encoding)
+    ros_image.height, ros_image.width, _ = img.shape
+    ros_image.data = img.ravel().tobytes() 
+    ros_image.step = ros_image.width
+    return ros_image
