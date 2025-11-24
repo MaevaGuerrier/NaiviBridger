@@ -101,7 +101,7 @@ def main(args):
                                   [-1, 0, 0, -0.000],
                                   [0, -1, 0, -0.042],
                                   [0, 0, 0, 1]])
-    global context_size, image_path
+    global context_size
     # load model parameters
     with open(MODEL_CONFIG_PATH, "r") as f:
         model_paths = yaml.safe_load(f)
@@ -136,6 +136,9 @@ def main(args):
     )
     model = model.to(device)
     model.eval()
+
+    # print(model.__dict__.keys())
+    # exit()
 
      # load topomap
     topomap_filenames = sorted(os.listdir(os.path.join(
@@ -183,9 +186,17 @@ def main(args):
         # EXPLORATION MODE
         chosen_waypoint = np.zeros(4)
         if len(context_queue) > model_params["context_size"]:
+            # obs_images = transform_images(context_queue, model_params["image_size"], center_crop=False)
+            # obs_images = obs_images.to(device)
+            # mask = torch.ones(1).long().to(device)
+
             obs_images = transform_images(context_queue, model_params["image_size"], center_crop=False)
+            # import pdb; pdb.set_trace()
+            # obs_images = torch.split(obs_images, 3, dim=1)
+            # obs_images = torch.cat(obs_images, dim=1) 
             obs_images = obs_images.to(device)
-            mask = torch.ones(1).long().to(device)
+            mask = torch.zeros(1).long().to(device) 
+
 
             start = max(closest_node - args.radius, 0)
             end = min(closest_node + args.radius + 1, goal_node)
@@ -194,19 +205,22 @@ def main(args):
             goal_image = goal_image.to(device)
 
             obsgoal_cond = model('vision_encoder', obs_img=obs_images.repeat(len(goal_image), 1, 1, 1), goal_img=goal_image, input_goal_mask=mask.repeat(len(goal_image)))
-            print("obsgoal_cond shape:", obsgoal_cond.shape)
+            
 
             dists = model("dist_pred_net", obsgoal_cond=obsgoal_cond)
+            
             dists = to_numpy(dists.flatten())
             min_idx = np.argmin(dists)
+            
             closest_node = min_idx + start
-            print("closest node:", closest_node)
             closest_node_msg = Int32()
             closest_node_msg.data = closest_node
             closest_node_pub.publish(closest_node_msg)
             
             sg_idx = min(min_idx + int(dists[min_idx] < args.close_threshold), len(obsgoal_cond) - 1)
             obs_cond = obsgoal_cond[sg_idx].unsqueeze(0)
+            print(f"start {start} clnod {closest_node} sg_idx {sg_idx} dis {dists} ")
+
 
             with torch.no_grad():
                 if len(obs_cond.shape) == 2:
@@ -217,7 +231,7 @@ def main(args):
                 if model_params["model_type"] == "navibridge":
                     if model_params["prior_policy"] == "handcraft":
                         # Predict aciton states
-                        states_pred = model("states_pred_net", obs_cond=obs_cond)
+                        states_pred = model("states_pred_net", obsgoal_cond=obs_cond)
 
                     if model_params["prior_policy"] == "cvae":
                         prior_cond = obs_images.repeat_interleave(args.num_samples, dim=0)
@@ -256,11 +270,13 @@ def main(args):
 
             naction = to_numpy(get_action(naction))
             # @TODO what is this so 3xmax_v first then divide? from naivirbidge codebase
-            scale_factor= 3 * MAX_V / RATE
+            # scale_factor= 3 * MAX_V / RATE
+            print(f"MAX V: {MAX_V}, RATE: {RATE}")
+            scale_factor= (MAX_V / RATE)
             naction *= scale_factor
+
             sampled_actions_msg = Float32MultiArray()
             sampled_actions_msg.data = np.concatenate((np.array([0]), naction.flatten()))
-            print("published sampled actions")
             sampled_actions_pub.publish(sampled_actions_msg)
             naction = naction[0] 
             chosen_waypoint = naction[args.waypoint]
@@ -282,7 +298,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model",
         "-m",
-        default="navibridger_noise",
+        default="navibridger_cvae",
         type=str,
         help="model name (hint: check ../config/models.yaml)",
     )
@@ -311,7 +327,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dir",
         "-d",
-        default="sim_aug",
+        default="sim_test",
         type=str,
         help="path to topomap images",
     )

@@ -90,7 +90,7 @@ class VAEModel():
 
         self.ema = ExponentialMovingAverage(self.net.parameters(), decay=0.99)
         if model_args['pretrain']:
-            checkpoint = torch.load(model_args['ckpt_path'], map_location="cpu")
+            checkpoint = torch.load(model_args['ckpt_path'], map_location="cuda" if torch.cuda.is_available() else "cpu")
             self.net.load_state_dict(checkpoint['net'])
             self.ema.load_state_dict(checkpoint["ema"])
 

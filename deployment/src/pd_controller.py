@@ -57,8 +57,10 @@ def pd_controller(waypoint: np.ndarray) -> Tuple[float]:
 	else:
 		v = dx / DT
 		w = np.arctan(dy/dx) / DT
+	# print(f"MAX_V: {MAX_V}, MAX_W: {MAX_W}")
 	v = np.clip(v, 0, MAX_V)
 	w = np.clip(w, -MAX_W, MAX_W)
+	# print(f"PD controller output: v={v}, w={w}")
 	return v, w
 
 

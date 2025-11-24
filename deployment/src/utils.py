@@ -28,7 +28,7 @@ from vint_train.data.data_utils import IMAGE_ASPECT_RATIO
 from vint_train.models.navibridge.ddbm.karras_diffusion import KarrasDenoiser
 from vint_train.models.navibridge.ddbm.resample import create_named_schedule_sampler
 from vint_train.models.navibridge.navibridge import PriorModel, Prior_HandCraft
-# from vint_train.models.navibridge.vae.vae import VAEModel
+from vint_train.models.navibridge.vae.vae import VAEModel
 from vint_train.models.model_utils import set_model_prior
 
 def load_model(
@@ -73,8 +73,8 @@ def load_model(
             states_pred_net=states_pred_net,
         )
         set_model_prior(model, config, device)
-    # elif config["model_type"] == "cvae":
-    #     model = VAEModel(config)
+    elif config["model_type"] == "cvae":
+        model = VAEModel(config)
     else:
         raise ValueError(f"Invalid model type: {model_type}")
     

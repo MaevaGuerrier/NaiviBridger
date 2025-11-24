@@ -250,7 +250,7 @@ def karras_sample(
         guidance=guidance,
         **sampler_args,
     )
-    print('nfe:', nfe)
+    # print('nfe:', nfe)
 
     return x_0.clamp(-1, 1), [x.clamp(-1, 1) for x in path], nfe
 
