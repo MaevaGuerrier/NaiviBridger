@@ -16,7 +16,7 @@ import yaml
 from PIL import Image as PILImage
 import matplotlib.pyplot as plt
 
-from utils import to_numpy, transform_images, load_model, to_numpy, transform_images, load_model, pil_to_msg, msg_to_pil
+from utils import to_numpy, transform_images, load_model, to_numpy, transform_images, pil_to_msg, msg_to_pil
 
 
 # ROS 
