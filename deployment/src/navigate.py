@@ -356,5 +356,5 @@ if __name__ == "__main__":
         the last node in the topomap) (default: -1)""",
     )
     args = parser.parse_args()
-    print(f"Using {device}")
+    print(f"Using model {args.model} on device {device} ")
     main(args)
