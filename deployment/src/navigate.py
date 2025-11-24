@@ -170,6 +170,7 @@ def main(args):
     path_viz_pub = rospy.Publisher(
         "viz_path", Path, queue_size=1)
     sampled_actions_pub = rospy.Publisher(SAMPLED_ACTIONS_TOPIC, Float32MultiArray, queue_size=1)
+    distances_pub = rospy.Publisher("/distances", Float32MultiArray, queue_size=1)
     goal_pub = rospy.Publisher("/topoplan/reached_goal", Bool, queue_size=1)
     goal_img_pub = rospy.Publisher("/topoplan/goal_img", Image, queue_size=1)
     subgoal_img_pub = rospy.Publisher("/topoplan/subgoal_img", Image, queue_size=1)
@@ -206,12 +207,14 @@ def main(args):
 
             obsgoal_cond = model('vision_encoder', obs_img=obs_images.repeat(len(goal_image), 1, 1, 1), goal_img=goal_image, input_goal_mask=mask.repeat(len(goal_image)))
             
-
             dists = model("dist_pred_net", obsgoal_cond=obsgoal_cond)
-            
             dists = to_numpy(dists.flatten())
-            min_idx = np.argmin(dists)
+            distances_msg = Float32MultiArray()
+            distances_msg.data = dists
+            distances_pub.publish(distances_msg)
             
+
+            min_idx = np.argmin(dists)
             closest_node = min_idx + start
             closest_node_msg = Int32()
             closest_node_msg.data = closest_node
