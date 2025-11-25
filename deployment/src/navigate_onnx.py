@@ -16,7 +16,8 @@ import yaml
 from PIL import Image as PILImage
 import matplotlib.pyplot as plt
 
-from utils import to_numpy, transform_images, load_model, to_numpy, transform_images, load_model, pil_to_msg, msg_to_pil
+from utils import to_numpy, load_model, to_numpy, pil_to_msg
+from utils_onnx import msg_to_pil, transform_images, load_model_onnx
 
 import time
 
@@ -138,8 +139,15 @@ def main(args):
     model = model.to(device)
     model.eval()
 
-    # print(model.__dict__.keys())
-    # exit()
+
+    ort_sess_vis_encoder = load_model_onnx("navibridger_vision_encoder")
+    print("loaded vision encoder onnx model")
+    print("Running on:", ort_sess_vis_encoder.get_provider_options())
+
+    ort_sess_dist_pred = load_model_onnx("navibridger_dist_pred_net")
+    print("loaded distance predictor onnx model")
+    print("Running on:", ort_sess_dist_pred.get_provider_options())
+
 
      # load topomap
     topomap_filenames = sorted(os.listdir(os.path.join(
@@ -188,51 +196,76 @@ def main(args):
         # EXPLORATION MODE
         chosen_waypoint = np.zeros(4)
         if len(context_queue) > model_params["context_size"]:
-            # obs_images = transform_images(context_queue, model_params["image_size"], center_crop=False)
-            # obs_images = obs_images.to(device)
-            # mask = torch.ones(1).long().to(device)
-            time_0 = time.time()
-            obs_images = transform_images(context_queue, model_params["image_size"], center_crop=False)
-            # import pdb; pdb.set_trace()
-            # obs_images = torch.split(obs_images, 3, dim=1)
-            # obs_images = torch.cat(obs_images, dim=1) 
-            obs_images = obs_images.to(device)
-            mask = torch.zeros(1).long().to(device) 
-
-
             start = max(closest_node - args.radius, 0)
             end = min(closest_node + args.radius + 1, goal_node)
-            goal_image = [transform_images(g_img, model_params["image_size"], center_crop=False).to(device) for g_img in topomap[start:end + 1]]
-            goal_image = torch.concat(goal_image, dim=0)
-            goal_image = goal_image.to(device)
-
-            obsgoal_cond = model('vision_encoder', obs_img=obs_images.repeat(len(goal_image), 1, 1, 1), goal_img=goal_image, input_goal_mask=mask.repeat(len(goal_image)))
+            distances = []
+            waypoints = []
+            batch_obs_imgs = []
+            batch_goal_data = []
             
-            dists = model("dist_pred_net", obsgoal_cond=obsgoal_cond)
-            dists = to_numpy(dists.flatten())
+            
+            crop = False
+            
+            time_0 = time.time()
+            # Transform observation once
+            transf_obs_img = transform_images(
+                context_queue, model_params["image_size"], center_crop=crop
+            )
+
+            # Vectorized goal processing
+            goal_imgs = topomap[start:end + 1]  
+            batch_goal_data_np = np.concatenate([
+                transform_images(sg_img, model_params["image_size"], center_crop=crop)
+                for sg_img in goal_imgs
+            ], axis=0).astype('float16')
+
+            # Repeat observation for batch
+            num_goals = len(goal_imgs)
+            batch_obs_imgs_np = np.tile(transf_obs_img, (num_goals, 1, 1, 1)).astype('float16')
+            input_goal_mask_np = np.zeros((num_goals,), dtype=np.int64)
+
+
+            ort_inputs = {
+                "obs_img": batch_obs_imgs_np.astype(np.float32),
+                "goal_img": batch_goal_data_np.astype(np.float32),
+                "input_goal_mask": input_goal_mask_np.astype(np.int64),
+            }
+            obsgoal_cond = ort_sess_vis_encoder.run(None, ort_inputs)[0]
+            
+            ort_inputs = {
+                "obsgoal_cond": obsgoal_cond,
+            }
+            time_1 = time.time()
+            distances =  ort_sess_dist_pred.run(None, ort_inputs)[0]
+        
             distances_msg = Float32MultiArray()
-            distances_msg.data = dists
+            distances_msg.data = distances
             distances_pub.publish(distances_msg)
             
 
-            min_idx = np.argmin(dists)
-            closest_node = min_idx + start
+            min_dist_idx = np.argmin(distances)
+            closest_node = min_dist_idx + start
             closest_node_msg = Int32()
             closest_node_msg.data = closest_node
             closest_node_pub.publish(closest_node_msg)
             
-            sg_idx = min(min_idx + int(dists[min_idx] < args.close_threshold), len(obsgoal_cond) - 1)
-            obs_cond = obsgoal_cond[sg_idx].unsqueeze(0)
-            print(f"start {start} clnod {closest_node} sg_idx {sg_idx} dis {dists} ")
-
-
-            # print(f"obs cond shape: {obs_cond.shape}") obs cond shape: torch.Size([1, 256])
+            sg_idx = min(min_dist_idx + int(distances[min_dist_idx] < args.close_threshold), len(obsgoal_cond) - 1)
             
+            obs_cond_np = obsgoal_cond[sg_idx]
+            print(f"start {start} clnod {closest_node} sg_idx {sg_idx} dis {distances} ")
+
+            
+
             with torch.no_grad():
-                if len(obs_cond.shape) == 2:
-                    obs_cond = obs_cond.repeat(args.num_samples, 1)
+                if len(obs_cond_np.shape) == 2:
+                    obs_cond_np = np.tile(obs_cond_np, (args.num_samples, 1))
                 else:
-                    obs_cond = obs_cond.repeat(args.num_samples, 1, 1)
+                    obs_cond_np = np.tile(obs_cond_np, (args.num_samples, 1, 1))
+
+                if obs_cond_np.ndim == 3 and obs_cond_np.shape[1] == 1:
+                        obs_cond_np = obs_cond_np.squeeze(1)
+
+                obs_cond = torch.tensor(obs_cond_np, device=device)
 
                 if model_params["model_type"] == "navibridge":
                     if model_params["prior_policy"] == "handcraft":
@@ -240,8 +273,9 @@ def main(args):
                         states_pred = model("states_pred_net", obsgoal_cond=obs_cond)
 
                     if model_params["prior_policy"] == "cvae":
-                        # print(f"obs_images shape: {obs_images.shape}") obs_images shape: torch.Size([1, 12, 96, 96])
 
+                        obs_images = torch.tensor(transf_obs_img, device=device, dtype=torch.float32)
+                        # print(f"obs_images shape: {obs_images.shape}") obs_images shape: torch.Size([1, 12, 96, 96])
                         prior_cond = obs_images.repeat_interleave(args.num_samples, dim=0)
                     elif model_params["prior_policy"] == "handcraft":
                         prior_cond = states_pred
@@ -255,6 +289,7 @@ def main(args):
                         with torch.no_grad():
                             initial_samples = model.prior_model.sample(cond=prior_cond, device=device)
                         assert initial_samples.shape[-1] == 2, "action dim must be 2"
+                    time_diff_start = time.time()
                     naction, path, nfe = karras_sample(
                         diffusion,
                         model,
@@ -272,6 +307,7 @@ def main(args):
                         rho=model_params["rho"],
                         guidance=model_params["guidance"]
                     )
+                    print(f"Diffusion time: {time.time() - time_diff_start}")
 
                     print(f"Inference time w/ torch {time.time() - time_0}")
 
@@ -281,7 +317,7 @@ def main(args):
             naction = to_numpy(get_action(naction))
             # @TODO what is this so 3xmax_v first then divide? from naivirbidge codebase
             # scale_factor= 3 * MAX_V / RATE
-            print(f"MAX V: {MAX_V}, RATE: {RATE}")
+            # print(f"MAX V: {MAX_V}, RATE: {RATE}")
             scale_factor= (MAX_V / RATE)
             naction *= scale_factor
 
