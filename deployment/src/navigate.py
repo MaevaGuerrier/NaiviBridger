@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 
 from utils import to_numpy, transform_images, load_model, to_numpy, transform_images, pil_to_msg, msg_to_pil
 
+import time
 
 # ROS 
 
@@ -190,7 +191,7 @@ def main(args):
             # obs_images = transform_images(context_queue, model_params["image_size"], center_crop=False)
             # obs_images = obs_images.to(device)
             # mask = torch.ones(1).long().to(device)
-
+            time_0 = time.time()
             obs_images = transform_images(context_queue, model_params["image_size"], center_crop=False)
             # import pdb; pdb.set_trace()
             # obs_images = torch.split(obs_images, 3, dim=1)
@@ -250,6 +251,7 @@ def main(args):
                         with torch.no_grad():
                             initial_samples = model.prior_model.sample(cond=prior_cond, device=device)
                         assert initial_samples.shape[-1] == 2, "action dim must be 2"
+                    time_diffusion_start = time.time()
                     naction, path, nfe = karras_sample(
                         diffusion,
                         model,
@@ -267,6 +269,8 @@ def main(args):
                         rho=model_params["rho"],
                         guidance=model_params["guidance"]
                     )
+                    print(f"Diffusion time: {time.time() - time_diffusion_start} sec")
+                    print(f"Inference time: {time.time() - time_0} sec")
 
             # if args.path_visual:
             #     path_project_plot(context_queue[-1], path, args, camera_extrinsics, camera_intrinsics)
