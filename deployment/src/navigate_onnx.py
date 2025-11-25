@@ -148,8 +148,8 @@ def main(args):
     print("loaded distance predictor onnx model")
     print("Running on:", ort_sess_dist_pred.get_provider_options())
 
-
-     # load topomap
+    
+    # load topomap
     topomap_filenames = sorted(os.listdir(os.path.join(
         TOPOMAP_IMAGES_DIR, args.dir)), key=lambda x: int(x.split(".")[0]))
     topomap_dir = f"{TOPOMAP_IMAGES_DIR}/{args.dir}"
