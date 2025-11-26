@@ -26,7 +26,7 @@ import time
 import rospy
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped, Pose, Point
-from std_msgs.msg import Bool, Float32MultiArray, Int32
+from std_msgs.msg import Bool, Float32MultiArray, Int32, Float32
 from nav_msgs.msg import Path
 
 
@@ -179,12 +179,13 @@ def main(args):
     path_viz_pub = rospy.Publisher(
         "viz_path", Path, queue_size=1)
     sampled_actions_pub = rospy.Publisher(SAMPLED_ACTIONS_TOPIC, Float32MultiArray, queue_size=1)
-    distances_pub = rospy.Publisher("/distances", Float32MultiArray, queue_size=1)
     goal_pub = rospy.Publisher("/topoplan/reached_goal", Bool, queue_size=1)
     goal_img_pub = rospy.Publisher("/topoplan/goal_img", Image, queue_size=1)
     subgoal_img_pub = rospy.Publisher("/topoplan/subgoal_img", Image, queue_size=1)
     closest_node_img_pub = rospy.Publisher("/topoplan/closest_node_img", Image, queue_size=1)
     closest_node_pub = rospy.Publisher(CLOSEST_NODE_TOPIC, Int32, queue_size=10)
+    distances_pub = rospy.Publisher("/distances", Float32MultiArray, queue_size=1)
+    inference_pub = rospy.Publisher("/inference_time", Float32, queue_size=10)
 
 
 
@@ -206,7 +207,7 @@ def main(args):
             
             crop = False
             
-            time_0 = time.time()
+            start_time = time.time()
             # Transform observation once
             transf_obs_img = transform_images(
                 context_queue, model_params["image_size"], center_crop=crop
@@ -252,7 +253,7 @@ def main(args):
             sg_idx = min(min_dist_idx + int(distances[min_dist_idx] < args.close_threshold), len(obsgoal_cond) - 1)
             
             obs_cond_np = obsgoal_cond[sg_idx]
-            print(f"start {start} clnod {closest_node} sg_idx {sg_idx} dis {distances} ")
+            # print(f"start {start} clnod {closest_node} sg_idx {sg_idx} dis {distances} ")
 
             
 
@@ -289,7 +290,7 @@ def main(args):
                         with torch.no_grad():
                             initial_samples = model.prior_model.sample(cond=prior_cond, device=device)
                         assert initial_samples.shape[-1] == 2, "action dim must be 2"
-                    time_diff_start = time.time()
+                    # time_diff_start = time.time()
                     naction, path, nfe = karras_sample(
                         diffusion,
                         model,
@@ -307,9 +308,13 @@ def main(args):
                         rho=model_params["rho"],
                         guidance=model_params["guidance"]
                     )
-                    print(f"Diffusion time: {time.time() - time_diff_start}")
-
-                    print(f"Inference time w/ torch {time.time() - time_0}")
+                    # print(f"Diffusion time: {time.time() - time_diff_start}")
+                    inference_time = time.time() - start_time
+                    print(f"Inference time: {inference_time:.3f} seconds")
+                    inference_time_msg = Float32()
+                    inference_time_msg.data = inference_time
+                    inference_pub.publish(inference_time_msg)
+                    
 
             # if args.path_visual:
             #     path_project_plot(context_queue[-1], path, args, camera_extrinsics, camera_intrinsics)

@@ -25,7 +25,7 @@ import time
 import rospy
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped, Pose, Point
-from std_msgs.msg import Bool, Float32MultiArray, Int32
+from std_msgs.msg import Bool, Float32MultiArray, Int32, Float32
 from nav_msgs.msg import Path
 
 
@@ -171,12 +171,13 @@ def main(args):
     path_viz_pub = rospy.Publisher(
         "viz_path", Path, queue_size=1)
     sampled_actions_pub = rospy.Publisher(SAMPLED_ACTIONS_TOPIC, Float32MultiArray, queue_size=1)
-    distances_pub = rospy.Publisher("/distances", Float32MultiArray, queue_size=1)
     goal_pub = rospy.Publisher("/topoplan/reached_goal", Bool, queue_size=1)
     goal_img_pub = rospy.Publisher("/topoplan/goal_img", Image, queue_size=1)
     subgoal_img_pub = rospy.Publisher("/topoplan/subgoal_img", Image, queue_size=1)
     closest_node_img_pub = rospy.Publisher("/topoplan/closest_node_img", Image, queue_size=1)
     closest_node_pub = rospy.Publisher(CLOSEST_NODE_TOPIC, Int32, queue_size=10)
+    distances_pub = rospy.Publisher("/distances", Float32MultiArray, queue_size=1)
+    inference_pub = rospy.Publisher("/inference_time", Float32, queue_size=10)
 
 
 
@@ -191,7 +192,7 @@ def main(args):
             # obs_images = transform_images(context_queue, model_params["image_size"], center_crop=False)
             # obs_images = obs_images.to(device)
             # mask = torch.ones(1).long().to(device)
-            time_0 = time.time()
+            start_time = time.time()
             obs_images = transform_images(context_queue, model_params["image_size"], center_crop=False)
             # import pdb; pdb.set_trace()
             # obs_images = torch.split(obs_images, 3, dim=1)
@@ -273,8 +274,11 @@ def main(args):
                         guidance=model_params["guidance"]
                     )
 
-                    print(f"Inference time w/ torch {time.time() - time_0}")
-
+                    inference_time = time.time() - start_time
+                    print(f"Inference time: {inference_time:.3f} seconds")
+                    inference_time_msg = Float32()
+                    inference_time_msg.data = inference_time
+                    inference_pub.publish(inference_time_msg)
             # if args.path_visual:
             #     path_project_plot(context_queue[-1], path, args, camera_extrinsics, camera_intrinsics)
             
