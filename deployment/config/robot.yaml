@@ -1,7 +1,7 @@
 max_v: 0.1 #0.4 # m/s
 max_w: 0.5 #0.8 # rad/s
 # observation rate fo the robot
-frame_rate: 4 # Hz default 4
+frame_rate: 30 # Hz default 4
 graph_rate: 0.3333 # Hz  
 
 # topic names (modify for different robots/nodes)
