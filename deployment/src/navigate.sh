@@ -18,29 +18,35 @@ img_topic=`sed -n 's/^IMAGE_TOPIC *= *"\(.*\)"/\1/p' topic_names.py`
 # Change back the directory to the working dir with the navigate.py script
 cd /workspace/src/NaiviBridger/deployment/src
 
-# Create a new tmux session
-session_name="vint_locobot_$(date +%s)"
-tmux new-session -d -s $session_name
-
-# Split the window into four panes
-tmux selectp -t 0    # select the first (0) pane
-tmux splitw -h -p 50 # split it into two halves
 
 
-# Run the roslaunch command in the first pane
-# tmux select-pane -t 0
-# tmux send-keys "echo 'launch_file: $launch_file'" Enter
-# tmux send-keys "roslaunch ${launch_pkg} ${launch_file}" Enter
+# Start tmux session detached
+tmux new-session -d -s $SESSION
 
-# Run the navigate.py script with command line args in the second pane
-tmux select-pane -t 0
-# tmux send-keys "conda activate vint_deployment" Enter
-tmux send-keys "python3 navigate.py $@" Enter
+# --- Create top 3 panes ---
+# Pane 0 exists by default
+tmux split-window -h -t $SESSION:0.0          # Creates Pane 1 (0 left, 1 right)
+tmux split-window -h -t $SESSION:0.1          # Creates Pane 2 (0 left, 1 middle, 2 right)
 
-# Run the pd_controller.py script in the fourth pane
-tmux select-pane -t 1
-# tmux send-keys "conda activate vint_deployment" Enter
-tmux send-keys "python3 pd_controller.py" Enter
+# --- Create big bottom pane ---
+tmux split-window -v -t $SESSION:0.0          # Splits pane 0 vertically → Pane 3 at bottom
+tmux join-pane -h -t $SESSION:0.3             # Merge all bottom splits into pane 3 (if needed)
 
-# Attach to the tmux session
-tmux -2 attach-session -t $session_name
+
+
+tmux select-pane -t $SESSION:0.0
+tmux send-keys "python3 navigate.py" Enter
+
+
+tmux select-pane -t $SESSION:0.1
+tmux send-keys "python3 pd_controller.py" Enter 
+
+
+tmux select-pane -t $SESSION:0.2
+tmux send-keys "python3 topic_hz_monitor.py" Enter
+
+tmux select-pane -t $SESSION:0.3
+tmux send-keys "python3 monitor.py" Enter
+
+# Attach to the session
+tmux attach -t $SESSION
