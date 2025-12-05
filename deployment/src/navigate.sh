@@ -19,7 +19,7 @@ img_topic=`sed -n 's/^IMAGE_TOPIC *= *"\(.*\)"/\1/p' topic_names.py`
 cd /workspace/src/NaiviBridger/deployment/src
 
 
-
+SESSION="naivibridger_session"
 # Start tmux session detached
 tmux new-session -d -s $SESSION
 
@@ -35,7 +35,7 @@ tmux join-pane -h -t $SESSION:0.3             # Merge all bottom splits into pan
 
 
 tmux select-pane -t $SESSION:0.0
-tmux send-keys "python3 navigate.py" Enter
+tmux send-keys "python3 navigate.py $@" Enter
 
 
 tmux select-pane -t $SESSION:0.1

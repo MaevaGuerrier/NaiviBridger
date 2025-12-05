@@ -224,7 +224,7 @@ def main(args):
             
             sg_idx = min(min_idx + int(dists[min_idx] < args.close_threshold), len(obsgoal_cond) - 1)
             obs_cond = obsgoal_cond[sg_idx].unsqueeze(0)
-            print(f"start {start} clnod {closest_node} sg_idx {sg_idx} dis {dists} ")
+            # print(f"start {start} clnod {closest_node} sg_idx {sg_idx} dis {dists} ")
 
 
             # print(f"obs cond shape: {obs_cond.shape}") obs cond shape: torch.Size([1, 256])
@@ -285,7 +285,7 @@ def main(args):
             naction = to_numpy(get_action(naction))
             # @TODO what is this so 3xmax_v first then divide? from naivirbidge codebase
             # scale_factor= 3 * MAX_V / RATE
-            print(f"MAX V: {MAX_V}, RATE: {RATE}")
+            # print(f"MAX V: {MAX_V}, RATE: {RATE}")
             scale_factor= (MAX_V / RATE)
             naction *= scale_factor
 
